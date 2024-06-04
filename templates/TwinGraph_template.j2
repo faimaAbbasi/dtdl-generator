@@ -1,0 +1,85 @@
+######################################
+#   DTDL mobility twin definition  #
+######################################
+
+from azure.core.exceptions import HttpResponseError
+from azure.identity import DefaultAzureCredential
+from azure.digitaltwins.core import DigitalTwinsClient
+import os
+from azure.core.exceptions import ResourceNotFoundError
+import json
+import warnings
+warnings.filterwarnings("ignore")
+warnings.simplefilter("ignore")
+
+# Building a connection with AzureDT Platform
+os.environ['AZURE_URL'] = 'https://mddteu.api.weu.digitaltwins.azure.net'
+url = os.getenv('AZURE_URL')
+credential = DefaultAzureCredential()
+client = DigitalTwinsClient(url, credential)
+
+# Creating Digital Twins Using BUML Object Model
+{% for instance in object.instances %}
+{% set counter = namespace(value=0) %}
+{% for end in instance.classifier.all_association_ends() %}
+{% if end.is_composite == False %}
+{% if counter.value == 0 %}
+{{ instance.name }}={
+    "$metadata": {
+        "$model": "dtmi:example:{{instance.classifier.name}};1"
+    },
+    "$dtId":"{{instance.name}}",
+    {% for slot in instance.slots %}
+    "{{slot.attribute.name}}":{% if slot.attribute.type.name == 'str' or slot.attribute.type.name == 'time' %}"{{ slot.value.value }}"{% else %}{{ slot.value.value }}{% endif %},
+    {% endfor %}
+    {% for link in object.links %}
+    {% if link.name == "composition" and link.connections[1].object.name == instance.name%}
+    "{{link.connections[0].object.classifier.name}}":{
+        "$metadata": {
+        },
+        "$dtId":"{{link.connections[0].object.name}}",
+        {% for slot in link.connections[0].object.slots %}
+        "{{slot.attribute.name}}":{% if slot.attribute.type.name == 'str' or slot.attribute.type.name == 'time' %}"{{ slot.value.value }}"{% else %}{{ slot.value.value }}{% endif %},
+        {% endfor %}
+    }
+    {% endif %}
+    {% endfor %}
+}
+# Adding Twins to Platform
+add_twin = client.upsert_digital_twin("{{instance.name}}",{{ instance.name }})
+{% set counter.value = counter.value + 1 %}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% endfor %}
+
+# Creating Relations between Twins
+{% for link in object.links %}
+{% if link.name != "composition"%}
+relationship_id="{{link.connections[0].association_end.name}}"
+source="{{link.connections[1].object.name}}"
+target="{{link.connections[0].object.name}}"
+rel_name="{{link.connections[0].association_end.name}}"
+relationship={
+    "$relationshipId": relationship_id,
+    "$sourceId": source,
+    "$relationshipName": rel_name,
+    "$targetId": target,
+}
+# Adding Relations Between Twins
+client.upsert_relationship(source, relationship_id, relationship)
+
+relationship_id="{{link.connections[1].association_end.name}}"
+source="{{link.connections[0].object.name}}"
+target="{{link.connections[1].object.name}}"
+rel_name="{{link.connections[1].association_end.name}}"
+relationship={
+    "$relationshipId": relationship_id,
+    "$sourceId": source,
+    "$relationshipName": rel_name,
+    "$targetId": target,
+}
+# Adding Relations Between Twins
+client.upsert_relationship(source, relationship_id, relationship)
+{% endif %}
+{% endfor %}

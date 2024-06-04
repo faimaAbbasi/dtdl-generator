@@ -1,0 +1,64 @@
+#####################################
+#   DTDL Mobility model definition  #
+#####################################
+
+from azure.core.exceptions import HttpResponseError
+from azure.identity import DefaultAzureCredential
+from azure.digitaltwins.core import DigitalTwinsClient
+import os
+from azure.core.exceptions import ResourceNotFoundError
+import json
+import warnings
+warnings.filterwarnings("ignore")
+warnings.simplefilter("ignore")
+
+# Building a connection with AzureDT platform
+os.environ['AZURE_URL'] = 'https://mddteu.api.weu.digitaltwins.azure.net'
+url = os.getenv('AZURE_URL')
+credential = DefaultAzureCredential()
+client = DigitalTwinsClient(url, credential)
+
+# Creating Models Using BUML Classes
+{% for class in model.get_classes() %}
+{{class.name }}={
+    "@id": "dtmi:example:{{class.name }};1",
+    "@context": "dtmi:dtdl:context;2",
+    "@type":"Interface",
+    "displayName":"{{class.name }}",
+    {% for parent in class.all_parents() %}
+    {% if parent.name != null %}
+    "extends": [
+    "dtmi:example:{{parent.name}};1"
+    ],
+    {% endif %}
+    {% endfor %}
+    "contents": [
+    {% for attr in class.attributes %}
+        {
+            "@type":"Property",
+            "name":"{{attr.name }}",
+            "schema":"{{types[attr.type.name] }}"
+        },
+    {% endfor %}
+    {% for end in class.all_association_ends() %}
+        {% if end.name == "has" %}
+        {
+        "@type":"Component",
+        "name":"{{end.type.name}}",
+        "schema": "dtmi:example:{{end.type.name}};1"
+        },
+        {% elif end.name != "locatedIn" %}
+        {
+        "@type":"Relationship",
+        "name":"{{end.name }}",
+        "target": "dtmi:example:{{end.type.name}};1"
+        },
+        {% else %}
+        {% endif %}
+    {% endfor %}
+    ]
+}
+{% endfor %}
+
+# Pushing these models on Azure DT platform
+models = client.create_models([{% for class in model.get_classes() %}{{ class.name }}{% if not loop.last %},{% endif %}{% endfor %}])
