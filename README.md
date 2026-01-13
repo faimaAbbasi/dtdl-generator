@@ -37,6 +37,13 @@ We recommend using ```Python 3.12.2```. Make sure your ```requirements.txt``` fi
 ```bash
 pip install -r requirement.txt
 ```
+### Usage 
+
+To set up the DTDL generator for the mobility use case, run the following file:
+```bash
+python buml-mobility.py
+python dtdl-generator.py     
+```
 
 ## Graphs on Azure DT Platform [Results]
 
