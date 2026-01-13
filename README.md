@@ -41,8 +41,8 @@ pip install -r requirement.txt
 
 To set up the DTDL generator for the mobility use case, run the following file:
 ```bash
-python buml-mobility.py
-python dtdl-generator.py     
+python buml_mobility.py
+python dtdl_generator.py     
 ```
 
 ## Graphs on Azure DT Platform [Results]
